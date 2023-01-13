@@ -1,20 +1,59 @@
-import { component$, useClientEffect$, useSignal } from '@builder.io/qwik';
+import { component$, $, useClientEffect$, useSignal } from '@builder.io/qwik';
 import type { DocumentHead } from '@builder.io/qwik-city';
-import { createClient, Session } from '@supabase/supabase-js'
+import { supabase } from '~/utils/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 export default component$(() => {
-  // Create a single supabase client for interacting with your database
-  const sessionSignal = useSignal<Session | null>(null);
+
+  const sessionSignal = useSignal<Session | null>();
+
+  const handleSignup = $(async (event: Event) => {
+    event.preventDefault();
+
+    // @ts-ignore
+    const email = event.target?.email.value
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ email })
+      if (error) throw error
+      alert('Check your email for the login link!')
+    } catch (error) {
+      alert(error.error_description || error.message)
+    }
+  })
+
+  const handleLogOut = $(async () => {
+    await supabase.auth.signOut();
+  })
 
   useClientEffect$(() => {
-    const supabase = createClient('https://hekswwlkwkqoslseucwn.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhla3N3d2xrd2txb3Nsc2V1Y3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NzM2MDQxMDYsImV4cCI6MTk4OTE4MDEwNn0.4pFByy904Uso4ju6Rg577b8Plgu1kXJ4l6dOP7OILWA');
     supabase.auth.getSession().then(({ data: { session } }) => {
       sessionSignal.value = session;
     })
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      sessionSignal.value = session;
+    })
   })
+
   return (
     <div>
-      {sessionSignal.value ? "Logged in" : "Not logged in"}
+      <form onSubmit$={handleSignup} preventdefault:submit>
+        <label for="email">Email</label>
+        <input
+          type="email"
+          name="email"
+          id="email"
+          placeholder="Your email"
+          autoComplete="email"
+          required
+        />
+        <button type="submit">Submit</button>
+      </form>
+      {sessionSignal.value &&
+        <button onClick$={handleLogOut}>Log out</button>
+      }
+      <p>{sessionSignal.value ? "Logged in!" : "Not logged in :c"}</p>
     </div>
   );
 });
